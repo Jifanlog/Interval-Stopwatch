@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stopwatch</title>
+    <title>Countdown Timers</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +14,7 @@
             height: 100vh;
             background-color: #f4f4f4;
         }
-        .stopwatch {
+        .timer {
             font-size: 2em;
             margin-bottom: 20px;
         }
@@ -27,57 +27,96 @@
     </style>
 </head>
 <body>
-    <div class="stopwatch">00:00:00</div>
+    <div class="timer" id="timer1">01:00:000</div>
+    <div class="timer" id="timer2">01:30:000</div>
     <button id="start">Start</button>
     <button id="stop">Stop</button>
     <button id="reset">Reset</button>
 
     <script>
-        let timer;
-        let seconds = 0, minutes = 0, hours = 0;
+        let timer1, timer2;
+        let milliseconds1 = 0, seconds1 = 0, minutes1 = 1;
+        let milliseconds2 = 0, seconds2 = 30, minutes2 = 1; 
         let running = false;
+        let firstTimerFinished = false;
 
-        function updateDisplay() {
-            document.querySelector(".stopwatch").textContent = 
-                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        function updateDisplay(id, minutes, seconds, milliseconds) {
+            document.getElementById(id).textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(3, '0')}`;
         }
 
-        function startTimer() {
+        function startFirstTimer() {
             if (!running) {
                 running = true;
-                timer = setInterval(() => {
-                    seconds++;
-                    if (seconds === 60) {
-                        seconds = 0;
-                        minutes++;
+                timer1 = setInterval(() => {
+                    if (milliseconds1 === 0) {
+                        if (seconds1 === 0) {
+                            if (minutes1 === 0) {
+                                stopTimer();
+                                firstTimerFinished = true;
+                                startSecondTimer();
+                                return;
+                            } else {
+                                minutes1--;
+                                seconds1 = 59;
+                                milliseconds1 = 990;
+                            }
+                        } else {
+                            seconds1--;
+                            milliseconds1 = 990;
+                        }
+                    } else {
+                        milliseconds1 -= 10;
                     }
-                    if (minutes === 60) {
-                        minutes = 0;
-                        hours++;
-                    }
-                    updateDisplay();
-                }, 1000);
+                    updateDisplay("timer1", minutes1, seconds1, milliseconds1);
+                }, 10);
             }
+        }
+
+        function startSecondTimer() {
+            timer2 = setInterval(() => {
+                if (milliseconds2 === 0) {
+                    if (seconds2 === 0) {
+                        if (minutes2 === 0) {
+                            clearInterval(timer2);
+                            return;
+                        } else {
+                            minutes2--;
+                            seconds2 = 59;
+                            milliseconds2 = 990;
+                        }
+                    } else {
+                        seconds2--;
+                        milliseconds2 = 990;
+                    }
+                } else {
+                    milliseconds2 -= 10;
+                }
+                updateDisplay("timer2", minutes2, seconds2, milliseconds2);
+            }, 10);
         }
 
         function stopTimer() {
             running = false;
-            clearInterval(timer);
+            clearInterval(timer1);
+            clearInterval(timer2);
         }
 
         function resetTimer() {
             stopTimer();
-            seconds = 0;
-            minutes = 0;
-            hours = 0;
-            updateDisplay();
+            milliseconds1 = 0; seconds1 = 0; minutes1 = 1;
+            milliseconds2 = 0; seconds2 = 30; minutes2 = 1;
+            firstTimerFinished = false;
+            updateDisplay("timer1", minutes1, seconds1, milliseconds1);
+            updateDisplay("timer2", minutes2, seconds2, milliseconds2);
         }
 
-        document.getElementById("start").addEventListener("click", startTimer);
+        document.getElementById("start").addEventListener("click", startFirstTimer);
         document.getElementById("stop").addEventListener("click", stopTimer);
         document.getElementById("reset").addEventListener("click", resetTimer);
 
-        updateDisplay();
+        updateDisplay("timer1", minutes1, seconds1, milliseconds1);
+        updateDisplay("timer2", minutes2, seconds2, milliseconds2);
     </script>
 </body>
 </html>
