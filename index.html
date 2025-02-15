@@ -4,34 +4,48 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Countdown Timers</title>
+    <title>Countdown Phases</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: #f4f4f4;
         }
 
-        .timer {
-            font-size: 2em;
-            margin-bottom: 10px;
-            transition: opacity 1s ease-out;
+        .phase {
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 10px;
+            margin: 10px;
+            width: 300px;
         }
 
-        .fade-out {
-            opacity: 0;
+        .phase h2 {
+            margin-top: 0;
+        }
+
+        .timer,
+        .phase h2,
+        .phase h3 {
+            font-size: 1.5em;
+            margin: 5px 0;
         }
 
         button,
         input {
             font-size: 1em;
-            padding: 10px;
+            padding: 5px;
             margin: 5px;
             cursor: pointer;
+        }
+
+        #runningDisplay {
+            margin-top: 20px;
+            text-align: center;
+            width: 80%;
         }
     </style>
 </head>
@@ -42,23 +56,26 @@
         <input type="checkbox" id="wakeLockToggle" />
     </label>
     <div>
-        <label for="inputMinutes">Minutes:</label>
-        <input type="number" id="inputMinutes" min="0" style="width: 50px;" />
-        <label for="inputSeconds">Seconds:</label>
-        <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)" style="width: 50px;" />
-        <button id="addTimer">Add Timer</button>
+        <button id="addPhase">Add Phase</button>
     </div>
-    <div id="timers"></div>
-    <button id="start">Start</button>
-    <button id="stop">Stop</button>
-    <button id="reset">Reset</button>
+    <!-- Setup container for phases -->
+    <div id="phasesContainer"></div>
+
+    <div>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+        <button id="reset">Reset</button>
+    </div>
+
+    <!-- Running display (hidden during setup) -->
+    <div id="runningDisplay" style="display:none;"></div>
 
     <script>
-        let timers = [];
-        let timerIntervals = [];
+        let phases = []; // Each phase: { repeat: number, timers: [{ minutes, seconds }] }
         let running = false;
         let wakeLock = null;
         let wakeLockEnabled = false;
+        let currentTimerInterval = null; // holds the current timer interval (for stop functionality)
 
         async function requestWakeLock() {
             if ('wakeLock' in navigator && wakeLockEnabled) {
@@ -87,93 +104,216 @@
             }
         });
 
-        function validateSeconds(input) {
-            if (input.value > 59) {
-                input.value = 59;
-            } else if (input.value < 0) {
-                input.value = 0;
-            }
+        // ------------------------
+        // Phase & Timer Setup Code
+        // ------------------------
+        function addPhase() {
+            const phaseIndex = phases.length;
+            const phase = {
+                repeat: 1, // default repeat count
+                timers: [] // each timer is { minutes, seconds }
+            };
+            phases.push(phase);
+
+            // Create a UI element for this phase in the setup area
+            const phaseDiv = document.createElement("div");
+            phaseDiv.className = "phase";
+            phaseDiv.id = `phase${phaseIndex}`;
+
+            const header = document.createElement("h2");
+            header.textContent = `Phase ${phaseIndex + 1}`;
+            phaseDiv.appendChild(header);
+
+            // Input for repeat count
+            const repeatLabel = document.createElement("label");
+            repeatLabel.textContent = "Repeat:";
+            phaseDiv.appendChild(repeatLabel);
+
+            const repeatInput = document.createElement("input");
+            repeatInput.type = "number";
+            repeatInput.min = "1";
+            repeatInput.value = "1";
+            repeatInput.style.width = "50px";
+            repeatInput.addEventListener("change", function () {
+                phase.repeat = parseInt(this.value);
+            });
+            phaseDiv.appendChild(repeatInput);
+
+            // Container for timers of this phase
+            const timerContainer = document.createElement("div");
+            timerContainer.className = "timerContainer";
+            timerContainer.id = `phase${phaseIndex}Timers`;
+            phaseDiv.appendChild(timerContainer);
+
+            // Inputs for adding a timer to this phase
+            const minLabel = document.createElement("label");
+            minLabel.textContent = "Minutes:";
+            phaseDiv.appendChild(minLabel);
+
+            const minInput = document.createElement("input");
+            minInput.type = "number";
+            minInput.min = "0";
+            minInput.style.width = "50px";
+            phaseDiv.appendChild(minInput);
+
+            const secLabel = document.createElement("label");
+            secLabel.textContent = "Seconds:";
+            phaseDiv.appendChild(secLabel);
+
+            const secInput = document.createElement("input");
+            secInput.type = "number";
+            secInput.min = "0";
+            secInput.max = "59";
+            secInput.style.width = "50px";
+            secInput.addEventListener("input", function () {
+                if (this.value > 59) { this.value = 59; }
+                if (this.value < 0) { this.value = 0; }
+            });
+            phaseDiv.appendChild(secInput);
+
+            const addTimerBtn = document.createElement("button");
+            addTimerBtn.textContent = "Add Timer";
+            addTimerBtn.addEventListener("click", function () {
+                const minutes = parseInt(minInput.value) || 0;
+                const seconds = parseInt(secInput.value) || 0;
+                if (minutes === 0 && seconds === 0) return;
+                phase.timers.push({ minutes, seconds });
+
+                // Display the added timer inside the phase setup area
+                const timerDisplay = document.createElement("div");
+                timerDisplay.className = "timer";
+                timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                timerContainer.appendChild(timerDisplay);
+
+                // Clear inputs
+                minInput.value = "";
+                secInput.value = "";
+            });
+            phaseDiv.appendChild(addTimerBtn);
+
+            document.getElementById("phasesContainer").appendChild(phaseDiv);
         }
 
-        function addTimer() {
-            const minutes = parseInt(document.getElementById("inputMinutes").value) || 0;
-            const seconds = parseInt(document.getElementById("inputSeconds").value) || 0;
-            if (minutes === 0 && seconds === 0) return;
-            const timerId = timers.length;
-            timers.push({ minutes, seconds });
-            const timerDiv = document.createElement("div");
-            timerDiv.className = "timer";
-            timerDiv.id = `timer${timerId}`;
-            timerDiv.innerHTML = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-            document.getElementById("timers").appendChild(timerDiv);
+        document.getElementById("addPhase").addEventListener("click", addPhase);
+
+        // ------------------------
+        // Auto scroll helper function
+        // ------------------------
+        function autoScroll() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
         }
 
-        function updateDisplay(timerId) {
-            const timer = timers[timerId];
-            document.getElementById(`timer${timerId}`).textContent =
-                `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
-        }
-
-        function startTimer(index = 0) {
-            if (index >= timers.length) return;
-            if (!running) {
-                running = true;
-            }
-
-            const timer = timers[index];
-            timerIntervals[index] = setInterval(() => {
-                if (timer.seconds === 0) {
-                    if (timer.minutes === 0) {
-                        clearInterval(timerIntervals[index]);
-                        fadeOutTimer(index);
-                        startTimer(index + 1);
-                        return;
+        // ------------------------
+        // Running the Phases
+        // ------------------------
+        // Runs a single timer (counts down from timer.minutes:timer.seconds)
+        // and updates the provided display element.
+        function runTimer(timer, displayElement) {
+            return new Promise((resolve) => {
+                let minutes = timer.minutes;
+                let seconds = timer.seconds;
+                displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                autoScroll();
+                currentTimerInterval = setInterval(() => {
+                    if (seconds === 0) {
+                        if (minutes === 0) {
+                            clearInterval(currentTimerInterval);
+                            // Leave the display as is (showing 00:00)
+                            resolve();
+                            return;
+                        } else {
+                            minutes--;
+                            seconds = 59;
+                        }
                     } else {
-                        timer.minutes--;
-                        timer.seconds = 59;
+                        seconds--;
                     }
-                } else {
-                    timer.seconds--;
-                }
-                updateDisplay(index);
-            }, 1000);
-        }
-
-        function fadeOutTimer(index) {
-            const timerElement = document.getElementById(`timer${index}`);
-            if (timerElement) {
-                timerElement.classList.add("fade-out");
-                setTimeout(() => {
-                    timerElement.remove();
+                    displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    autoScroll();
                 }, 1000);
-            }
+            });
         }
 
+        // Runs all phases sequentially.
+        // For each phase, it repeats the timer sequence as specified.
+        async function startPhases() {
+            running = true;
+            if (wakeLockEnabled) await requestWakeLock();
+
+            // Hide the setup UI and show the running display.
+            document.getElementById("phasesContainer").style.display = "none";
+            const runningDisplay = document.getElementById("runningDisplay");
+            runningDisplay.style.display = "block";
+            runningDisplay.innerHTML = ""; // clear previous content
+
+            // Iterate through phases.
+            for (let phaseIndex = 0; phaseIndex < phases.length; phaseIndex++) {
+                const phase = phases[phaseIndex];
+
+                // Create a header for this phase.
+                const phaseHeader = document.createElement("h2");
+                phaseHeader.textContent = `Phase ${phaseIndex + 1}`;
+                runningDisplay.appendChild(phaseHeader);
+                autoScroll();
+
+                // Run each repetition.
+                for (let rep = 0; rep < phase.repeat; rep++) {
+                    const repHeader = document.createElement("h3");
+                    repHeader.textContent = `Repetition ${rep + 1} of ${phase.repeat}`;
+                    runningDisplay.appendChild(repHeader);
+                    autoScroll();
+
+                    // Container for the timers in this repetition.
+                    const timersContainer = document.createElement("div");
+                    timersContainer.className = "timersContainer";
+                    runningDisplay.appendChild(timersContainer);
+                    autoScroll();
+
+                    // Run each timer sequentially.
+                    for (let timerIndex = 0; timerIndex < phase.timers.length; timerIndex++) {
+                        const timer = phase.timers[timerIndex];
+                        const timerDiv = document.createElement("div");
+                        timerDiv.className = "timer";
+                        // Initialize timer display.
+                        timerDiv.textContent = `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                        timersContainer.appendChild(timerDiv);
+                        autoScroll();
+                        // Wait until this timer finishes.
+                        await runTimer({ ...timer }, timerDiv);
+                    }
+                }
+            }
+
+            runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
+            autoScroll();
+            releaseWakeLock();
+            running = false;
+        }
+
+        document.getElementById("start").addEventListener("click", startPhases);
+
+        // ------------------------
+        // Stop & Reset Functions
+        // ------------------------
         function stopTimers() {
             running = false;
-            timerIntervals.forEach(clearInterval);
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+            }
+            releaseWakeLock();
         }
 
-        function resetTimers() {
+        document.getElementById("stop").addEventListener("click", stopTimers);
+
+        function resetAll() {
             stopTimers();
-            document.getElementById("timers").innerHTML = "";
-            timers = [];
-            timerIntervals = [];
+            phases = [];
+            document.getElementById("phasesContainer").innerHTML = "";
+            document.getElementById("phasesContainer").style.display = "block";
+            document.getElementById("runningDisplay").style.display = "none";
         }
 
-        document.getElementById("addTimer").addEventListener("click", addTimer);
-        document.getElementById("start").addEventListener("click", () => {
-            if (wakeLockEnabled) requestWakeLock();
-            startTimer(0);
-        });
-        document.getElementById("stop").addEventListener("click", () => {
-            stopTimers();
-            releaseWakeLock();
-        });
-        document.getElementById("reset").addEventListener("click", () => {
-            resetTimers();
-            releaseWakeLock();
-        });
+        document.getElementById("reset").addEventListener("click", resetAll);
     </script>
 </body>
 
