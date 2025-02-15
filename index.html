@@ -47,6 +47,11 @@
             text-align: center;
             width: 80%;
         }
+
+        /* Optional: styling for the control buttons */
+        #controls {
+            margin-top: 20px;
+        }
     </style>
 </head>
 
@@ -61,10 +66,12 @@
     <!-- Setup container for phases -->
     <div id="phasesContainer"></div>
 
-    <div>
+    <!-- Control buttons -->
+    <div id="controls">
         <button id="start">Start</button>
         <button id="stop">Stop</button>
         <button id="reset">Reset</button>
+        <button id="backToSetup">Back to Setup</button>
     </div>
 
     <!-- Running display (hidden during setup) -->
@@ -135,7 +142,6 @@
                 phase.timers.forEach(timer => {
                     const timerDisplay = document.createElement("div");
                     timerDisplay.className = "timer";
-                    // Use 🚴‍♂️ for Work and 🛌 for Rest.
                     const emoji = timer.type === "Work" ? "🚴‍♂️" : "🛌";
                     timerDisplay.textContent = `${emoji} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                     timerContainer.appendChild(timerDisplay);
@@ -150,7 +156,6 @@
                 typeSelect.style.width = "150px";
                 const workOption = document.createElement("option");
                 workOption.value = "Work";
-                // Display a guy on a bike emoji for Work.
                 workOption.textContent = "🚴‍♂️";
                 typeSelect.appendChild(workOption);
                 const restOption = document.createElement("option");
@@ -327,7 +332,7 @@
 
             runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
 
-            // Add a button to go back to the setup view.
+            // Add a button to go back to the setup view in case the user wants to edit or view phases.
             const backButton = document.createElement("button");
             backButton.textContent = "Back to Setup";
             backButton.addEventListener("click", function () {
@@ -365,6 +370,14 @@
         }
 
         document.getElementById("reset").addEventListener("click", resetAll);
+
+        // "Back to Setup" button added next to "Reset" in the control buttons
+        document.getElementById("backToSetup").addEventListener("click", function () {
+            // Hide the running display and show the setup view.
+            document.getElementById("runningDisplay").style.display = "none";
+            document.getElementById("phasesContainer").style.display = "block";
+            renderPhases();
+        });
 
         // Load stored phases on page load.
         window.addEventListener("DOMContentLoaded", loadPhases);
