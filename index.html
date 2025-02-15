@@ -31,10 +31,14 @@
     </style>
 </head>
 <body>
-    <div style="display: flex; flex-direction: column; align-items: center;">
+    <label>
+        Prevent Screen Sleep:
+        <input type="checkbox" id="wakeLockToggle">
+    </label>
+    <div>
         <label for="inputMinutes">Minutes:</label>
         <input type="number" id="inputMinutes" min="0" style="width: 50px;">
-        <br><label for="inputSeconds">Seconds:</label>
+        <label for="inputSeconds">Seconds:</label>
         <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)">
         <button id="addTimer">Add Timer</button>
     </div>
@@ -42,10 +46,6 @@
     <button id="start">Start</button>
     <button id="stop">Stop</button>
     <button id="reset">Reset</button>
-    <label>
-        Prevent Screen Sleep:
-        <input type="checkbox" id="wakeLockToggle">
-    </label>
 
     <script>
         let timers = [];
