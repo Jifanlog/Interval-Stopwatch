@@ -92,45 +92,6 @@
             }
         }
 
-        // Helper: Create a dropdown (select) with options from 0 to max-1.
-        function createDropdown(maxValue) {
-            const select = document.createElement("select");
-            for (let i = 0; i < maxValue; i++) {
-                const option = document.createElement("option");
-                option.value = i;
-                option.textContent = i.toString().padStart(2, "0");
-                select.appendChild(option);
-            }
-            return select;
-        }
-
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator && wakeLockEnabled) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock is active');
-                } catch (err) {
-                    console.error('Wake Lock request failed:', err);
-                }
-            }
-        }
-
-        function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                    console.log('Wake Lock released');
-                });
-            }
-        }
-
-        document.getElementById("wakeLockToggle").addEventListener("change", function () {
-            wakeLockEnabled = this.checked;
-            if (!wakeLockEnabled) {
-                releaseWakeLock();
-            }
-        });
-
         // Render the phases in the setup area
         function renderPhases() {
             const container = document.getElementById("phasesContainer");
@@ -224,6 +185,45 @@
             });
         }
 
+        // Helper: Create a dropdown (select) with options from 0 to max-1.
+        function createDropdown(maxValue) {
+            const select = document.createElement("select");
+            for (let i = 0; i < maxValue; i++) {
+                const option = document.createElement("option");
+                option.value = i;
+                option.textContent = i.toString().padStart(2, "0");
+                select.appendChild(option);
+            }
+            return select;
+        }
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && wakeLockEnabled) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                } catch (err) {
+                    console.error('Wake Lock request failed:', err);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
+                });
+            }
+        }
+
+        document.getElementById("wakeLockToggle").addEventListener("change", function () {
+            wakeLockEnabled = this.checked;
+            if (!wakeLockEnabled) {
+                releaseWakeLock();
+            }
+        });
+
         // Add a new phase and save it
         function addPhase() {
             const phase = {
@@ -242,7 +242,7 @@
             window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
         }
 
-        // Runs a single timer and updates the provided display element.
+        // Runs a single timer (counts down from timer.minutes:timer.seconds) and updates the provided display element.
         function runTimer(timer, displayElement) {
             return new Promise((resolve) => {
                 let minutes = timer.minutes;
@@ -316,6 +316,17 @@
             }
 
             runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
+
+            // Add a button to go back to the setup view.
+            const backButton = document.createElement("button");
+            backButton.textContent = "Back to Setup";
+            backButton.addEventListener("click", function () {
+                document.getElementById("phasesContainer").style.display = "block";
+                document.getElementById("runningDisplay").style.display = "none";
+                renderPhases(); // Re-render the setup view if needed.
+            });
+            runningDisplay.appendChild(backButton);
+
             autoScroll();
             releaseWakeLock();
             running = false;
