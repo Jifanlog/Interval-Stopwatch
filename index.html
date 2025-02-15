@@ -197,6 +197,13 @@
         document.getElementById("addPhase").addEventListener("click", addPhase);
 
         // ------------------------
+        // Auto scroll helper function
+        // ------------------------
+        function autoScroll() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        }
+
+        // ------------------------
         // Running the Phases
         // ------------------------
         // Runs a single timer (counts down from timer.minutes:timer.seconds)
@@ -206,6 +213,7 @@
                 let minutes = timer.minutes;
                 let seconds = timer.seconds;
                 displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                autoScroll();
                 currentTimerInterval = setInterval(() => {
                     if (seconds === 0) {
                         if (minutes === 0) {
@@ -221,6 +229,7 @@
                         seconds--;
                     }
                     displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    autoScroll();
                 }, 1000);
             });
         }
@@ -241,21 +250,24 @@
             for (let phaseIndex = 0; phaseIndex < phases.length; phaseIndex++) {
                 const phase = phases[phaseIndex];
 
-                // Create and display a header for the phase.
+                // Create a header for this phase.
                 const phaseHeader = document.createElement("h2");
                 phaseHeader.textContent = `Phase ${phaseIndex + 1}`;
                 runningDisplay.appendChild(phaseHeader);
+                autoScroll();
 
                 // Run each repetition.
                 for (let rep = 0; rep < phase.repeat; rep++) {
                     const repHeader = document.createElement("h3");
                     repHeader.textContent = `Repetition ${rep + 1} of ${phase.repeat}`;
                     runningDisplay.appendChild(repHeader);
+                    autoScroll();
 
                     // Container for the timers in this repetition.
                     const timersContainer = document.createElement("div");
                     timersContainer.className = "timersContainer";
                     runningDisplay.appendChild(timersContainer);
+                    autoScroll();
 
                     // Run each timer sequentially.
                     for (let timerIndex = 0; timerIndex < phase.timers.length; timerIndex++) {
@@ -265,6 +277,7 @@
                         // Initialize timer display.
                         timerDiv.textContent = `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                         timersContainer.appendChild(timerDiv);
+                        autoScroll();
                         // Wait until this timer finishes.
                         await runTimer({ ...timer }, timerDiv);
                     }
@@ -272,6 +285,7 @@
             }
 
             runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
+            autoScroll();
             releaseWakeLock();
             running = false;
         }
