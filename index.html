@@ -35,7 +35,8 @@
         }
 
         button,
-        input {
+        input,
+        select {
             font-size: 1em;
             padding: 5px;
             margin: 5px;
@@ -71,7 +72,8 @@
     <div id="runningDisplay" style="display:none;"></div>
 
     <script>
-        let phases = []; // Each phase: { repeat: number, timers: [{ minutes, seconds }] }
+        // Each phase: { repeat: number, timers: [{ type, minutes, seconds }] }
+        let phases = [];
         let running = false;
         let wakeLock = null;
         let wakeLockEnabled = false;
@@ -107,11 +109,22 @@
         // ------------------------
         // Phase & Timer Setup Code
         // ------------------------
+        function createDropdown(maxValue) {
+            const select = document.createElement("select");
+            for (let i = 0; i < maxValue; i++) {
+                const option = document.createElement("option");
+                option.value = i;
+                option.textContent = i.toString().padStart(2, "0");
+                select.appendChild(option);
+            }
+            return select;
+        }
+
         function addPhase() {
             const phaseIndex = phases.length;
             const phase = {
                 repeat: 1, // default repeat count
-                timers: [] // each timer is { minutes, seconds }
+                timers: [] // each timer is { type, minutes, seconds }
             };
             phases.push(phase);
 
@@ -145,49 +158,56 @@
             timerContainer.id = `phase${phaseIndex}Timers`;
             phaseDiv.appendChild(timerContainer);
 
-            // Inputs for adding a timer to this phase
+            // New dropdown: Timer Type (Work or Rest)
+            const typeLabel = document.createElement("label");
+            typeLabel.textContent = "Timer Type:";
+            phaseDiv.appendChild(typeLabel);
+
+            const typeSelect = document.createElement("select");
+            typeSelect.style.width = "150px";
+            const workOption = document.createElement("option");
+            workOption.value = "Work";
+            workOption.textContent = "Work";
+            typeSelect.appendChild(workOption);
+            const restOption = document.createElement("option");
+            restOption.value = "Rest";
+            restOption.textContent = "Rest";
+            typeSelect.appendChild(restOption);
+            phaseDiv.appendChild(typeSelect);
+
+            // Dropdown for Minutes (0-59)
             const minLabel = document.createElement("label");
             minLabel.textContent = "Minutes:";
             phaseDiv.appendChild(minLabel);
+            const minSelect = createDropdown(60);
+            phaseDiv.appendChild(minSelect);
 
-            const minInput = document.createElement("input");
-            minInput.type = "number";
-            minInput.min = "0";
-            minInput.style.width = "50px";
-            phaseDiv.appendChild(minInput);
-
+            // Dropdown for Seconds (0-59)
             const secLabel = document.createElement("label");
             secLabel.textContent = "Seconds:";
             phaseDiv.appendChild(secLabel);
-
-            const secInput = document.createElement("input");
-            secInput.type = "number";
-            secInput.min = "0";
-            secInput.max = "59";
-            secInput.style.width = "50px";
-            secInput.addEventListener("input", function () {
-                if (this.value > 59) { this.value = 59; }
-                if (this.value < 0) { this.value = 0; }
-            });
-            phaseDiv.appendChild(secInput);
+            const secSelect = createDropdown(60);
+            phaseDiv.appendChild(secSelect);
 
             const addTimerBtn = document.createElement("button");
             addTimerBtn.textContent = "Add Timer";
             addTimerBtn.addEventListener("click", function () {
-                const minutes = parseInt(minInput.value) || 0;
-                const seconds = parseInt(secInput.value) || 0;
+                const minutes = parseInt(minSelect.value) || 0;
+                const seconds = parseInt(secSelect.value) || 0;
                 if (minutes === 0 && seconds === 0) return;
-                phase.timers.push({ minutes, seconds });
+                const timerType = typeSelect.value;
+                phase.timers.push({ type: timerType, minutes, seconds });
 
-                // Display the added timer inside the phase setup area
+                // Display the added timer inside the phase setup area.
+                // It will show the timer's type and its time.
                 const timerDisplay = document.createElement("div");
                 timerDisplay.className = "timer";
-                timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                timerDisplay.textContent = `${timerType} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 timerContainer.appendChild(timerDisplay);
 
-                // Clear inputs
-                minInput.value = "";
-                secInput.value = "";
+                // Reset dropdowns to 0 if desired
+                minSelect.value = 0;
+                secSelect.value = 0;
             });
             phaseDiv.appendChild(addTimerBtn);
 
@@ -212,13 +232,13 @@
             return new Promise((resolve) => {
                 let minutes = timer.minutes;
                 let seconds = timer.seconds;
-                displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 autoScroll();
                 currentTimerInterval = setInterval(() => {
                     if (seconds === 0) {
                         if (minutes === 0) {
                             clearInterval(currentTimerInterval);
-                            // Leave the display as is (showing 00:00)
+                            // Leave the display as is (showing 00:00 with the type)
                             resolve();
                             return;
                         } else {
@@ -228,7 +248,7 @@
                     } else {
                         seconds--;
                     }
-                    displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                     autoScroll();
                 }, 1000);
             });
@@ -275,7 +295,7 @@
                         const timerDiv = document.createElement("div");
                         timerDiv.className = "timer";
                         // Initialize timer display.
-                        timerDiv.textContent = `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                        timerDiv.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                         timersContainer.appendChild(timerDiv);
                         autoScroll();
                         // Wait until this timer finishes.
