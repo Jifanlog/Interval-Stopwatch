@@ -1,330 +1,353 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Countdown Phases</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .phase {
-      border: 1px solid #ccc;
-      background: #fff;
-      padding: 10px;
-      margin: 10px;
-      width: 300px;
-    }
-    .phase h2 {
-      margin-top: 0;
-    }
-    .timer,
-    .phase h2,
-    .phase h3 {
-      font-size: 1.2em;
-      margin: 5px 0;
-    }
-    button,
-    select {
-      font-size: 1em;
-      padding: 5px;
-      margin: 5px;
-      cursor: pointer;
-    }
-    #runningDisplay {
-      margin-top: 20px;
-      text-align: center;
-      width: 80%;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Countdown Phases with Session Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .phase {
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 10px;
+            margin: 10px;
+            width: 300px;
+        }
+
+        .phase h2 {
+            margin-top: 0;
+        }
+
+        .timer,
+        .phase h2,
+        .phase h3 {
+            font-size: 1.2em;
+            margin: 5px 0;
+        }
+
+        button,
+        select {
+            font-size: 1em;
+            padding: 5px;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        #runningDisplay {
+            margin-top: 20px;
+            text-align: center;
+            width: 80%;
+        }
+    </style>
 </head>
+
 <body>
-  <label>
-    Prevent Screen Sleep:
-    <input type="checkbox" id="wakeLockToggle" />
-  </label>
-  <div>
-    <button id="addPhase">Add Phase</button>
-  </div>
-  <!-- Setup container for phases -->
-  <div id="phasesContainer"></div>
-  
-  <div>
-    <button id="start">Start</button>
-    <button id="stop">Stop</button>
-    <button id="reset">Reset</button>
-  </div>
-  
-  <!-- Running display (hidden during setup) -->
-  <div id="runningDisplay" style="display:none;"></div>
-  
-  <script>
-    // Each phase: { repeat: number, timers: [{ type, minutes, seconds }] }
-    let phases = [];
-    let running = false;
-    let wakeLock = null;
-    let wakeLockEnabled = false;
-    let currentTimerInterval = null; // holds the current timer interval
-    
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator && wakeLockEnabled) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          console.log('Wake Lock is active');
-        } catch (err) {
-          console.error('Wake Lock request failed:', err);
+    <label>
+        Prevent Screen Sleep:
+        <input type="checkbox" id="wakeLockToggle" />
+    </label>
+    <div>
+        <button id="addPhase">Add Phase</button>
+    </div>
+    <!-- Setup container for phases -->
+    <div id="phasesContainer"></div>
+
+    <div>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+        <button id="reset">Reset</button>
+    </div>
+
+    <!-- Running display (hidden during setup) -->
+    <div id="runningDisplay" style="display:none;"></div>
+
+    <script>
+        // Each phase: { repeat: number, timers: [{ type, minutes, seconds }] }
+        let phases = [];
+        let running = false;
+        let wakeLock = null;
+        let wakeLockEnabled = false;
+        let currentTimerInterval = null; // holds the current timer interval
+
+        // Save the phases array to localStorage
+        function savePhases() {
+            localStorage.setItem("phases", JSON.stringify(phases));
         }
-      }
-    }
-    
-    function releaseWakeLock() {
-      if (wakeLock !== null) {
-        wakeLock.release().then(() => {
-          wakeLock = null;
-          console.log('Wake Lock released');
-        });
-      }
-    }
-    
-    document.getElementById("wakeLockToggle").addEventListener("change", function() {
-      wakeLockEnabled = this.checked;
-      if (!wakeLockEnabled) {
-        releaseWakeLock();
-      }
-    });
-    
-    // Helper: Create a dropdown (select) with options from 0 to max-1.
-    function createDropdown(maxValue) {
-      const select = document.createElement("select");
-      for (let i = 0; i < maxValue; i++) {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = i.toString().padStart(2, "0");
-        select.appendChild(option);
-      }
-      return select;
-    }
-    
-    // ------------------------
-    // Phase & Timer Setup
-    // ------------------------
-    function addPhase() {
-      const phaseIndex = phases.length;
-      const phase = {
-        repeat: 1, // default repeat count
-        timers: [] // each timer is { type, minutes, seconds }
-      };
-      phases.push(phase);
-      
-      // Create a UI element for this phase
-      const phaseDiv = document.createElement("div");
-      phaseDiv.className = "phase";
-      phaseDiv.id = `phase${phaseIndex}`;
-      
-      const header = document.createElement("h2");
-      header.textContent = `Phase ${phaseIndex + 1}`;
-      phaseDiv.appendChild(header);
-      
-      // Repeat count dropdown (values 1-10)
-      const repeatLabel = document.createElement("label");
-      repeatLabel.textContent = "Repeat:";
-      phaseDiv.appendChild(repeatLabel);
-      
-      const repeatSelect = document.createElement("select");
-      for (let i = 1; i <= 10; i++) {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = i;
-        repeatSelect.appendChild(option);
-      }
-      // Set initial repeat value.
-      phase.repeat = parseInt(repeatSelect.value);
-      repeatSelect.addEventListener("change", function() {
-        phase.repeat = parseInt(this.value);
-      });
-      phaseDiv.appendChild(repeatSelect);
-      
-      // Container for this phase's timers
-      const timerContainer = document.createElement("div");
-      timerContainer.className = "timerContainer";
-      timerContainer.id = `phase${phaseIndex}Timers`;
-      phaseDiv.appendChild(timerContainer);
-      
-      // Dropdown for Timer Type (Work or Rest)
-      const typeLabel = document.createElement("label");
-      typeLabel.textContent = "Timer Type:";
-      phaseDiv.appendChild(typeLabel);
-      
-      const typeSelect = document.createElement("select");
-      typeSelect.style.width = "150px";
-      const workOption = document.createElement("option");
-      workOption.value = "Work";
-      workOption.textContent = "Work";
-      typeSelect.appendChild(workOption);
-      const restOption = document.createElement("option");
-      restOption.value = "Rest";
-      restOption.textContent = "Rest";
-      typeSelect.appendChild(restOption);
-      phaseDiv.appendChild(typeSelect);
-      
-      // Dropdown for Minutes (0-59)
-      const minLabel = document.createElement("label");
-      minLabel.textContent = "Minutes:";
-      phaseDiv.appendChild(minLabel);
-      const minSelect = createDropdown(60);
-      phaseDiv.appendChild(minSelect);
-      
-      // Dropdown for Seconds (0-59)
-      const secLabel = document.createElement("label");
-      secLabel.textContent = "Seconds:";
-      phaseDiv.appendChild(secLabel);
-      const secSelect = createDropdown(60);
-      phaseDiv.appendChild(secSelect);
-      
-      // Button to add a timer to this phase
-      const addTimerBtn = document.createElement("button");
-      addTimerBtn.textContent = "Add Timer";
-      addTimerBtn.addEventListener("click", function() {
-        const minutes = parseInt(minSelect.value) || 0;
-        const seconds = parseInt(secSelect.value) || 0;
-        if (minutes === 0 && seconds === 0) return;
-        const timerType = typeSelect.value;
-        phase.timers.push({ type: timerType, minutes, seconds });
-        
-        // Display the added timer
-        const timerDisplay = document.createElement("div");
-        timerDisplay.className = "timer";
-        timerDisplay.textContent = `${timerType} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-        timerContainer.appendChild(timerDisplay);
-        
-        // Reset dropdowns (optional)
-        minSelect.value = 0;
-        secSelect.value = 0;
-      });
-      phaseDiv.appendChild(addTimerBtn);
-      
-      document.getElementById("phasesContainer").appendChild(phaseDiv);
-    }
-    
-    document.getElementById("addPhase").addEventListener("click", addPhase);
-    
-    // ------------------------
-    // Auto Scroll Helper
-    // ------------------------
-    function autoScroll() {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-    }
-    
-    // ------------------------
-    // Running the Phases
-    // ------------------------
-    function runTimer(timer, displayElement) {
-      return new Promise((resolve) => {
-        let minutes = timer.minutes;
-        let seconds = timer.seconds;
-        displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-        autoScroll();
-        currentTimerInterval = setInterval(() => {
-          if (seconds === 0) {
-            if (minutes === 0) {
-              clearInterval(currentTimerInterval);
-              // Timer finished; leave display as "00:00"
-              resolve();
-              return;
-            } else {
-              minutes--;
-              seconds = 59;
+
+        // Load phases from localStorage and render them
+        function loadPhases() {
+            const stored = localStorage.getItem("phases");
+            if (stored) {
+                phases = JSON.parse(stored);
+                renderPhases();
             }
-          } else {
-            seconds--;
-          }
-          displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-          autoScroll();
-        }, 1000);
-      });
-    }
-    
-    async function startPhases() {
-      running = true;
-      if (wakeLockEnabled) await requestWakeLock();
-      
-      // Hide the setup UI and show the running display.
-      document.getElementById("phasesContainer").style.display = "none";
-      const runningDisplay = document.getElementById("runningDisplay");
-      runningDisplay.style.display = "block";
-      runningDisplay.innerHTML = ""; // clear previous content
-      
-      // Iterate through phases.
-      for (let phaseIndex = 0; phaseIndex < phases.length; phaseIndex++) {
-        const phase = phases[phaseIndex];
-        
-        // Phase header.
-        const phaseHeader = document.createElement("h2");
-        phaseHeader.textContent = `Phase ${phaseIndex + 1}`;
-        runningDisplay.appendChild(phaseHeader);
-        autoScroll();
-        
-        // Run each repetition.
-        for (let rep = 0; rep < phase.repeat; rep++) {
-          const repHeader = document.createElement("h3");
-          repHeader.textContent = `Repetition ${rep + 1} of ${phase.repeat}`;
-          runningDisplay.appendChild(repHeader);
-          autoScroll();
-          
-          // Container for timers in this repetition.
-          const timersContainer = document.createElement("div");
-          timersContainer.className = "timersContainer";
-          runningDisplay.appendChild(timersContainer);
-          autoScroll();
-          
-          // Run each timer sequentially.
-          for (let timerIndex = 0; timerIndex < phase.timers.length; timerIndex++) {
-            const timer = phase.timers[timerIndex];
-            const timerDiv = document.createElement("div");
-            timerDiv.className = "timer";
-            timerDiv.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
-            timersContainer.appendChild(timerDiv);
-            autoScroll();
-            await runTimer({ ...timer }, timerDiv);
-          }
         }
-      }
-      
-      runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
-      autoScroll();
-      releaseWakeLock();
-      running = false;
-    }
-    
-    document.getElementById("start").addEventListener("click", startPhases);
-    
-    // ------------------------
-    // Stop & Reset Functions
-    // ------------------------
-    function stopTimers() {
-      running = false;
-      if (currentTimerInterval) {
-        clearInterval(currentTimerInterval);
-      }
-      releaseWakeLock();
-    }
-    
-    document.getElementById("stop").addEventListener("click", stopTimers);
-    
-    function resetAll() {
-      stopTimers();
-      phases = [];
-      document.getElementById("phasesContainer").innerHTML = "";
-      document.getElementById("phasesContainer").style.display = "block";
-      document.getElementById("runningDisplay").style.display = "none";
-    }
-    
-    document.getElementById("reset").addEventListener("click", resetAll);
-  </script>
+
+        // Helper: Create a dropdown (select) with options from 0 to max-1.
+        function createDropdown(maxValue) {
+            const select = document.createElement("select");
+            for (let i = 0; i < maxValue; i++) {
+                const option = document.createElement("option");
+                option.value = i;
+                option.textContent = i.toString().padStart(2, "0");
+                select.appendChild(option);
+            }
+            return select;
+        }
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && wakeLockEnabled) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                } catch (err) {
+                    console.error('Wake Lock request failed:', err);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
+                });
+            }
+        }
+
+        document.getElementById("wakeLockToggle").addEventListener("change", function () {
+            wakeLockEnabled = this.checked;
+            if (!wakeLockEnabled) {
+                releaseWakeLock();
+            }
+        });
+
+        // Render the phases in the setup area
+        function renderPhases() {
+            const container = document.getElementById("phasesContainer");
+            container.innerHTML = "";
+            phases.forEach((phase, phaseIndex) => {
+                const phaseDiv = document.createElement("div");
+                phaseDiv.className = "phase";
+                phaseDiv.id = `phase${phaseIndex}`;
+
+                const header = document.createElement("h2");
+                header.textContent = `Phase ${phaseIndex + 1}`;
+                phaseDiv.appendChild(header);
+
+                // Repeat count dropdown (values 1-10)
+                const repeatLabel = document.createElement("label");
+                repeatLabel.textContent = "Repeat:";
+                phaseDiv.appendChild(repeatLabel);
+
+                const repeatSelect = document.createElement("select");
+                for (let i = 1; i <= 10; i++) {
+                    const option = document.createElement("option");
+                    option.value = i;
+                    option.textContent = i;
+                    if (phase.repeat == i) {
+                        option.selected = true;
+                    }
+                    repeatSelect.appendChild(option);
+                }
+                repeatSelect.addEventListener("change", function () {
+                    phase.repeat = parseInt(this.value);
+                    savePhases();
+                });
+                phaseDiv.appendChild(repeatSelect);
+
+                // Container for timers in this phase
+                const timerContainer = document.createElement("div");
+                timerContainer.className = "timerContainer";
+                phaseDiv.appendChild(timerContainer);
+
+                // Render each timer in this phase
+                phase.timers.forEach(timer => {
+                    const timerDisplay = document.createElement("div");
+                    timerDisplay.className = "timer";
+                    timerDisplay.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                    timerContainer.appendChild(timerDisplay);
+                });
+
+                // Controls to add a new timer to this phase
+                const typeLabel = document.createElement("label");
+                typeLabel.textContent = "Timer Type:";
+                phaseDiv.appendChild(typeLabel);
+
+                const typeSelect = document.createElement("select");
+                typeSelect.style.width = "150px";
+                const workOption = document.createElement("option");
+                workOption.value = "Work";
+                workOption.textContent = "Work";
+                typeSelect.appendChild(workOption);
+                const restOption = document.createElement("option");
+                restOption.value = "Rest";
+                restOption.textContent = "Rest";
+                typeSelect.appendChild(restOption);
+                phaseDiv.appendChild(typeSelect);
+
+                const minLabel = document.createElement("label");
+                minLabel.textContent = "Minutes:";
+                phaseDiv.appendChild(minLabel);
+                const minSelect = createDropdown(60);
+                phaseDiv.appendChild(minSelect);
+
+                const secLabel = document.createElement("label");
+                secLabel.textContent = "Seconds:";
+                phaseDiv.appendChild(secLabel);
+                const secSelect = createDropdown(60);
+                phaseDiv.appendChild(secSelect);
+
+                const addTimerBtn = document.createElement("button");
+                addTimerBtn.textContent = "Add Timer";
+                addTimerBtn.addEventListener("click", function () {
+                    const minutes = parseInt(minSelect.value) || 0;
+                    const seconds = parseInt(secSelect.value) || 0;
+                    if (minutes === 0 && seconds === 0) return;
+                    const timerType = typeSelect.value;
+                    phase.timers.push({ type: timerType, minutes, seconds });
+                    savePhases();
+                    renderPhases(); // re-render to update the view
+                });
+                phaseDiv.appendChild(addTimerBtn);
+
+                container.appendChild(phaseDiv);
+            });
+        }
+
+        // Add a new phase and save it
+        function addPhase() {
+            const phase = {
+                repeat: 1, // default repeat count
+                timers: []  // each timer is { type, minutes, seconds }
+            };
+            phases.push(phase);
+            savePhases();
+            renderPhases();
+        }
+
+        document.getElementById("addPhase").addEventListener("click", addPhase);
+
+        // Auto scroll helper function
+        function autoScroll() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        }
+
+        // Runs a single timer and updates the provided display element.
+        function runTimer(timer, displayElement) {
+            return new Promise((resolve) => {
+                let minutes = timer.minutes;
+                let seconds = timer.seconds;
+                displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                autoScroll();
+                currentTimerInterval = setInterval(() => {
+                    if (seconds === 0) {
+                        if (minutes === 0) {
+                            clearInterval(currentTimerInterval);
+                            resolve();
+                            return;
+                        } else {
+                            minutes--;
+                            seconds = 59;
+                        }
+                    } else {
+                        seconds--;
+                    }
+                    displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    autoScroll();
+                }, 1000);
+            });
+        }
+
+        // Runs all phases sequentially.
+        async function startPhases() {
+            running = true;
+            if (wakeLockEnabled) await requestWakeLock();
+
+            // Hide setup UI and show running display.
+            document.getElementById("phasesContainer").style.display = "none";
+            const runningDisplay = document.getElementById("runningDisplay");
+            runningDisplay.style.display = "block";
+            runningDisplay.innerHTML = ""; // Clear previous content
+
+            // Iterate through phases.
+            for (let phaseIndex = 0; phaseIndex < phases.length; phaseIndex++) {
+                const phase = phases[phaseIndex];
+
+                // Phase header.
+                const phaseHeader = document.createElement("h2");
+                phaseHeader.textContent = `Phase ${phaseIndex + 1}`;
+                runningDisplay.appendChild(phaseHeader);
+                autoScroll();
+
+                // Run each repetition.
+                for (let rep = 0; rep < phase.repeat; rep++) {
+                    const repHeader = document.createElement("h3");
+                    repHeader.textContent = `Repetition ${rep + 1} of ${phase.repeat}`;
+                    runningDisplay.appendChild(repHeader);
+                    autoScroll();
+
+                    // Container for timers in this repetition.
+                    const timersContainer = document.createElement("div");
+                    timersContainer.className = "timersContainer";
+                    runningDisplay.appendChild(timersContainer);
+                    autoScroll();
+
+                    // Run each timer sequentially.
+                    for (let timerIndex = 0; timerIndex < phase.timers.length; timerIndex++) {
+                        const timer = phase.timers[timerIndex];
+                        const timerDiv = document.createElement("div");
+                        timerDiv.className = "timer";
+                        timerDiv.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                        timersContainer.appendChild(timerDiv);
+                        autoScroll();
+                        await runTimer({ ...timer }, timerDiv);
+                    }
+                }
+            }
+
+            runningDisplay.innerHTML += "<h2>All phases completed!</h2>";
+            autoScroll();
+            releaseWakeLock();
+            running = false;
+        }
+
+        document.getElementById("start").addEventListener("click", startPhases);
+
+        // Stop & Reset functions
+        function stopTimers() {
+            running = false;
+            if (currentTimerInterval) {
+                clearInterval(currentTimerInterval);
+            }
+            releaseWakeLock();
+        }
+
+        document.getElementById("stop").addEventListener("click", stopTimers);
+
+        function resetAll() {
+            stopTimers();
+            phases = [];
+            savePhases();
+            document.getElementById("phasesContainer").innerHTML = "";
+            document.getElementById("phasesContainer").style.display = "block";
+            document.getElementById("runningDisplay").style.display = "none";
+        }
+
+        document.getElementById("reset").addEventListener("click", resetAll);
+
+        // Load stored phases on page load.
+        window.addEventListener("DOMContentLoaded", loadPhases);
+    </script>
 </body>
+
 </html>
