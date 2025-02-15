@@ -17,6 +17,10 @@
         .timer {
             font-size: 2em;
             margin-bottom: 10px;
+            transition: opacity 1s ease-out;
+        }
+        .fade-out {
+            opacity: 0;
         }
         button, input {
             font-size: 1em;
@@ -27,11 +31,15 @@
     </style>
 </head>
 <body>
+    <label>
+        Prevent Screen Sleep:
+        <input type="checkbox" id="wakeLockToggle">
+    </label>
     <div>
         <label for="inputMinutes">Minutes:</label>
-        <input type="number" id="inputMinutes" min="0">
+        <input type="number" id="inputMinutes" min="0" style="width: 50px;">
         <label for="inputSeconds">Seconds:</label>
-        <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)">
+        <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)" style="width: 50px;>
         <button id="addTimer">Add Timer</button>
     </div>
     <div id="timers"></div>
@@ -43,6 +51,35 @@
         let timers = [];
         let timerIntervals = [];
         let running = false;
+        let wakeLock = null;
+        let wakeLockEnabled = false;
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && wakeLockEnabled) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                } catch (err) {
+                    console.error('Wake Lock request failed:', err);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
+                });
+            }
+        }
+
+        document.getElementById("wakeLockToggle").addEventListener("change", function() {
+            wakeLockEnabled = this.checked;
+            if (!wakeLockEnabled) {
+                releaseWakeLock();
+            }
+        });
 
         function validateSeconds(input) {
             if (input.value > 59) {
@@ -55,7 +92,7 @@
         function addTimer() {
             const minutes = parseInt(document.getElementById("inputMinutes").value) || 0;
             const seconds = parseInt(document.getElementById("inputSeconds").value) || 0;
-            if (minutes === 0 && seconds === 0) return; // Prevent adding empty timers
+            if (minutes === 0 && seconds === 0) return;
             const timerId = timers.length;
             timers.push({ minutes, seconds, milliseconds: 0 });
             const timerDiv = document.createElement("div");
@@ -73,7 +110,9 @@
 
         function startTimer(index = 0) {
             if (index >= timers.length) return;
-            if (!running) running = true;
+            if (!running) {
+                running = true;
+            }
 
             const timer = timers[index];
             timerIntervals[index] = setInterval(() => {
@@ -81,6 +120,7 @@
                     if (timer.seconds === 0) {
                         if (timer.minutes === 0) {
                             clearInterval(timerIntervals[index]);
+                            fadeOutTimer(index);
                             startTimer(index + 1);
                             return;
                         } else {
@@ -99,6 +139,16 @@
             }, 10);
         }
 
+        function fadeOutTimer(index) {
+            const timerElement = document.getElementById(`timer${index}`);
+            if (timerElement) {
+                timerElement.classList.add("fade-out");
+                setTimeout(() => {
+                    timerElement.remove();
+                }, 1000);
+            }
+        }
+
         function stopTimers() {
             running = false;
             timerIntervals.forEach(clearInterval);
@@ -112,9 +162,18 @@
         }
 
         document.getElementById("addTimer").addEventListener("click", addTimer);
-        document.getElementById("start").addEventListener("click", () => startTimer(0));
-        document.getElementById("stop").addEventListener("click", stopTimers);
-        document.getElementById("reset").addEventListener("click", resetTimers);
+        document.getElementById("start").addEventListener("click", () => {
+            if (wakeLockEnabled) requestWakeLock();
+            startTimer(0);
+        });
+        document.getElementById("stop").addEventListener("click", () => {
+            stopTimers();
+            releaseWakeLock();
+        });
+        document.getElementById("reset").addEventListener("click", () => {
+            resetTimers();
+            releaseWakeLock();
+        });
     </script>
 </body>
 </html>
