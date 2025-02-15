@@ -71,7 +71,7 @@
     <div id="runningDisplay" style="display:none;"></div>
 
     <script>
-        let phases = []; // Each phase: { repeat: number, timers: [{ minutes, seconds }] }
+        let phases = []; // Each phase: { repeat: number, timers: [{ name, minutes, seconds }] }
         let running = false;
         let wakeLock = null;
         let wakeLockEnabled = false;
@@ -111,7 +111,7 @@
             const phaseIndex = phases.length;
             const phase = {
                 repeat: 1, // default repeat count
-                timers: [] // each timer is { minutes, seconds }
+                timers: [] // each timer is { name, minutes, seconds }
             };
             phases.push(phase);
 
@@ -145,7 +145,18 @@
             timerContainer.id = `phase${phaseIndex}Timers`;
             phaseDiv.appendChild(timerContainer);
 
-            // Inputs for adding a timer to this phase
+            // New input: Timer Name
+            const nameLabel = document.createElement("label");
+            nameLabel.textContent = "Timer Name:";
+            phaseDiv.appendChild(nameLabel);
+
+            const nameInput = document.createElement("input");
+            nameInput.type = "text";
+            nameInput.placeholder = "Optional";
+            nameInput.style.width = "150px";
+            phaseDiv.appendChild(nameInput);
+
+            // Inputs for adding a timer to this phase: Minutes and Seconds
             const minLabel = document.createElement("label");
             minLabel.textContent = "Minutes:";
             phaseDiv.appendChild(minLabel);
@@ -177,15 +188,18 @@
                 const minutes = parseInt(minInput.value) || 0;
                 const seconds = parseInt(secInput.value) || 0;
                 if (minutes === 0 && seconds === 0) return;
-                phase.timers.push({ minutes, seconds });
+                const timerName = nameInput.value.trim();
+                phase.timers.push({ name: timerName, minutes, seconds });
 
-                // Display the added timer inside the phase setup area
+                // Display the added timer inside the phase setup area.
+                // It will show the timer's name (if provided) and its time.
                 const timerDisplay = document.createElement("div");
                 timerDisplay.className = "timer";
-                timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                timerDisplay.textContent = `${timerName ? timerName + " - " : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 timerContainer.appendChild(timerDisplay);
 
                 // Clear inputs
+                nameInput.value = "";
                 minInput.value = "";
                 secInput.value = "";
             });
@@ -212,13 +226,13 @@
             return new Promise((resolve) => {
                 let minutes = timer.minutes;
                 let seconds = timer.seconds;
-                displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                displayElement.textContent = `${timer.name ? timer.name + " - " : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 autoScroll();
                 currentTimerInterval = setInterval(() => {
                     if (seconds === 0) {
                         if (minutes === 0) {
                             clearInterval(currentTimerInterval);
-                            // Leave the display as is (showing 00:00)
+                            // Leave the display as is (showing 00:00 with the name if provided)
                             resolve();
                             return;
                         } else {
@@ -228,7 +242,7 @@
                     } else {
                         seconds--;
                     }
-                    displayElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    displayElement.textContent = `${timer.name ? timer.name + " - " : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                     autoScroll();
                 }, 1000);
             });
@@ -275,7 +289,7 @@
                         const timerDiv = document.createElement("div");
                         timerDiv.className = "timer";
                         // Initialize timer display.
-                        timerDiv.textContent = `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                        timerDiv.textContent = `${timer.name ? timer.name + " - " : ""}${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                         timersContainer.appendChild(timerDiv);
                         autoScroll();
                         // Wait until this timer finishes.
