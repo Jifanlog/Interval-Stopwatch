@@ -37,13 +37,9 @@
     </label>
     <div>
         <label for="inputMinutes">Minutes:</label>
-        <select id="inputMinutes">
-            " + "".join([f'<option value="{i}">{i}</option>' for i in range(60)]) + "
-        </select>
+        <input type="number" id="inputMinutes" min="0" style="width: 50px;">
         <label for="inputSeconds">Seconds:</label>
-        <select id="inputSeconds">
-            " + "".join([f'<option value="{i}">{i}</option>' for i in range(60)]) + "
-        </select>
+        <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)" style="width: 50px;">
         <button id="addTimer">Add Timer</button>
     </div>
     <div id="timers"></div>
