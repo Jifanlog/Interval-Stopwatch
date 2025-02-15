@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Countdown Timers</title>
     <style>
         body {
@@ -14,109 +15,166 @@
             height: 100vh;
             background-color: #f4f4f4;
         }
+
         .timer {
             font-size: 2em;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            transition: opacity 1s ease-out;
         }
-        button {
+
+        .fade-out {
+            opacity: 0;
+        }
+
+        button,
+        input {
             font-size: 1em;
-            padding: 10px 20px;
+            padding: 10px;
             margin: 5px;
             cursor: pointer;
         }
     </style>
 </head>
+
 <body>
-    <div class="timer" id="timer1">01:00:000</div>
-    <div class="timer" id="timer2">01:30:000</div>
+    <label>
+        Prevent Screen Sleep:
+        <input type="checkbox" id="wakeLockToggle" />
+    </label>
+    <div>
+        <label for="inputMinutes">Minutes:</label>
+        <input type="number" id="inputMinutes" min="0" style="width: 50px;" />
+        <label for="inputSeconds">Seconds:</label>
+        <input type="number" id="inputSeconds" min="0" max="59" oninput="validateSeconds(this)" style="width: 50px;" />
+        <button id="addTimer">Add Timer</button>
+    </div>
+    <div id="timers"></div>
     <button id="start">Start</button>
     <button id="stop">Stop</button>
     <button id="reset">Reset</button>
 
     <script>
-        let timer1, timer2;
-        let milliseconds1 = 0, seconds1 = 0, minutes1 = 1;
-        let milliseconds2 = 0, seconds2 = 30, minutes2 = 1; 
+        let timers = [];
+        let timerIntervals = [];
         let running = false;
-        let firstTimerFinished = false;
+        let wakeLock = null;
+        let wakeLockEnabled = false;
 
-        function updateDisplay(id, minutes, seconds, milliseconds) {
-            document.getElementById(id).textContent = 
-                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(3, '0')}`;
-        }
-
-        function startFirstTimer() {
-            if (!running) {
-                running = true;
-                timer1 = setInterval(() => {
-                    if (milliseconds1 === 0) {
-                        if (seconds1 === 0) {
-                            if (minutes1 === 0) {
-                                stopTimer();
-                                firstTimerFinished = true;
-                                startSecondTimer();
-                                return;
-                            } else {
-                                minutes1--;
-                                seconds1 = 59;
-                                milliseconds1 = 990;
-                            }
-                        } else {
-                            seconds1--;
-                            milliseconds1 = 990;
-                        }
-                    } else {
-                        milliseconds1 -= 10;
-                    }
-                    updateDisplay("timer1", minutes1, seconds1, milliseconds1);
-                }, 10);
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && wakeLockEnabled) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock is active');
+                } catch (err) {
+                    console.error('Wake Lock request failed:', err);
+                }
             }
         }
 
-        function startSecondTimer() {
-            timer2 = setInterval(() => {
-                if (milliseconds2 === 0) {
-                    if (seconds2 === 0) {
-                        if (minutes2 === 0) {
-                            clearInterval(timer2);
-                            return;
-                        } else {
-                            minutes2--;
-                            seconds2 = 59;
-                            milliseconds2 = 990;
-                        }
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
+                });
+            }
+        }
+
+        document.getElementById("wakeLockToggle").addEventListener("change", function () {
+            wakeLockEnabled = this.checked;
+            if (!wakeLockEnabled) {
+                releaseWakeLock();
+            }
+        });
+
+        function validateSeconds(input) {
+            if (input.value > 59) {
+                input.value = 59;
+            } else if (input.value < 0) {
+                input.value = 0;
+            }
+        }
+
+        function addTimer() {
+            const minutes = parseInt(document.getElementById("inputMinutes").value) || 0;
+            const seconds = parseInt(document.getElementById("inputSeconds").value) || 0;
+            if (minutes === 0 && seconds === 0) return;
+            const timerId = timers.length;
+            timers.push({ minutes, seconds });
+            const timerDiv = document.createElement("div");
+            timerDiv.className = "timer";
+            timerDiv.id = `timer${timerId}`;
+            timerDiv.innerHTML = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            document.getElementById("timers").appendChild(timerDiv);
+        }
+
+        function updateDisplay(timerId) {
+            const timer = timers[timerId];
+            document.getElementById(`timer${timerId}`).textContent =
+                `${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+        }
+
+        function startTimer(index = 0) {
+            if (index >= timers.length) return;
+            if (!running) {
+                running = true;
+            }
+
+            const timer = timers[index];
+            timerIntervals[index] = setInterval(() => {
+                if (timer.seconds === 0) {
+                    if (timer.minutes === 0) {
+                        clearInterval(timerIntervals[index]);
+                        fadeOutTimer(index);
+                        startTimer(index + 1);
+                        return;
                     } else {
-                        seconds2--;
-                        milliseconds2 = 990;
+                        timer.minutes--;
+                        timer.seconds = 59;
                     }
                 } else {
-                    milliseconds2 -= 10;
+                    timer.seconds--;
                 }
-                updateDisplay("timer2", minutes2, seconds2, milliseconds2);
-            }, 10);
+                updateDisplay(index);
+            }, 1000);
         }
 
-        function stopTimer() {
+        function fadeOutTimer(index) {
+            const timerElement = document.getElementById(`timer${index}`);
+            if (timerElement) {
+                timerElement.classList.add("fade-out");
+                setTimeout(() => {
+                    timerElement.remove();
+                }, 1000);
+            }
+        }
+
+        function stopTimers() {
             running = false;
-            clearInterval(timer1);
-            clearInterval(timer2);
+            timerIntervals.forEach(clearInterval);
         }
 
-        function resetTimer() {
-            stopTimer();
-            milliseconds1 = 0; seconds1 = 0; minutes1 = 1;
-            milliseconds2 = 0; seconds2 = 30; minutes2 = 1;
-            firstTimerFinished = false;
-            updateDisplay("timer1", minutes1, seconds1, milliseconds1);
-            updateDisplay("timer2", minutes2, seconds2, milliseconds2);
+        function resetTimers() {
+            stopTimers();
+            document.getElementById("timers").innerHTML = "";
+            timers = [];
+            timerIntervals = [];
         }
 
-        document.getElementById("start").addEventListener("click", startFirstTimer);
-        document.getElementById("stop").addEventListener("click", stopTimer);
-        document.getElementById("reset").addEventListener("click", resetTimer);
-
-        updateDisplay("timer1", minutes1, seconds1, milliseconds1);
-        updateDisplay("timer2", minutes2, seconds2, milliseconds2);
+        document.getElementById("addTimer").addEventListener("click", addTimer);
+        document.getElementById("start").addEventListener("click", () => {
+            if (wakeLockEnabled) requestWakeLock();
+            startTimer(0);
+        });
+        document.getElementById("stop").addEventListener("click", () => {
+            stopTimers();
+            releaseWakeLock();
+        });
+        document.getElementById("reset").addEventListener("click", () => {
+            resetTimers();
+            releaseWakeLock();
+        });
     </script>
 </body>
+
 </html>
