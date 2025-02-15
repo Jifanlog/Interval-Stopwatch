@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Countdown Phases with Session Storage</title>
+    <title>Countdown Phases with Emoji Timer Types</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -131,11 +131,13 @@
                 timerContainer.className = "timerContainer";
                 phaseDiv.appendChild(timerContainer);
 
-                // Render each timer in this phase
+                // Render each timer in this phase with emoji display
                 phase.timers.forEach(timer => {
                     const timerDisplay = document.createElement("div");
                     timerDisplay.className = "timer";
-                    timerDisplay.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                    // Use 🚴‍♂️ for Work and 🛌 for Rest.
+                    const emoji = timer.type === "Work" ? "🚴‍♂️" : "🛌";
+                    timerDisplay.textContent = `${emoji} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                     timerContainer.appendChild(timerDisplay);
                 });
 
@@ -148,11 +150,12 @@
                 typeSelect.style.width = "150px";
                 const workOption = document.createElement("option");
                 workOption.value = "Work";
-                workOption.textContent = "Work";
+                // Display a guy on a bike emoji for Work.
+                workOption.textContent = "🚴‍♂️";
                 typeSelect.appendChild(workOption);
                 const restOption = document.createElement("option");
                 restOption.value = "Rest";
-                restOption.textContent = "Rest";
+                restOption.textContent = "🛌";
                 typeSelect.appendChild(restOption);
                 phaseDiv.appendChild(typeSelect);
 
@@ -250,7 +253,8 @@
                 let seconds = timer.seconds;
                 // Set text color to black when timer is running.
                 displayElement.style.color = "black";
-                displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                const emoji = timer.type === "Work" ? "🚴‍♂️" : "🛌";
+                displayElement.textContent = `${emoji} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                 autoScroll();
                 currentTimerInterval = setInterval(() => {
                     if (seconds === 0) {
@@ -267,7 +271,7 @@
                     } else {
                         seconds--;
                     }
-                    displayElement.textContent = `${timer.type} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    displayElement.textContent = `${emoji} - ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
                     autoScroll();
                 }, 1000);
             });
@@ -312,7 +316,8 @@
                         const timer = phase.timers[timerIndex];
                         const timerDiv = document.createElement("div");
                         timerDiv.className = "timer";
-                        timerDiv.textContent = `${timer.type} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
+                        const emoji = timer.type === "Work" ? "🚴‍♂️" : "🛌";
+                        timerDiv.textContent = `${emoji} - ${String(timer.minutes).padStart(2, "0")}:${String(timer.seconds).padStart(2, "0")}`;
                         timersContainer.appendChild(timerDiv);
                         autoScroll();
                         await runTimer({ ...timer }, timerDiv);
