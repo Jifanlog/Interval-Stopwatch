@@ -250,13 +250,22 @@
       }
 
       // Runs a single timer using a timestamp to calculate elapsed time.
-      // Timer text is black while running and turns green upon completion.
+      // When a Work timer is running, the background becomes green.
+      // When a Rest timer is running, the background becomes yellow.
+      // When the timer completes, the background reverts to the default (#f4f4f4).
       function runTimer(timer, displayElement) {
         return new Promise((resolve) => {
           const totalDuration = timer.minutes * 60 + timer.seconds; // in seconds
           const startTime = Date.now();
           displayElement.style.color = "black";
           const emoji = timer.type === "Work" ? "🚴‍♂️" : "🛌";
+
+          // Set background color based on timer type:
+          if (timer.type === "Work") {
+            document.body.style.backgroundColor = "green";
+          } else {
+            document.body.style.backgroundColor = "yellow";
+          }
 
           function updateDisplay() {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -269,14 +278,15 @@
             )}:${String(s).padStart(2, "0")}`;
             autoScroll();
             if (remaining <= 0) {
-              // Timer complete
               displayElement.style.color = "green";
               clearInterval(timerInterval);
+              // Reset background to default when timer completes.
+              document.body.style.backgroundColor = "#f4f4f4";
               resolve();
             }
           }
 
-          // Update immediately
+          // Update immediately and then every second.
           updateDisplay();
           const timerInterval = setInterval(updateDisplay, 1000);
         });
@@ -377,7 +387,7 @@
 
       document.getElementById("reset").addEventListener("click", resetAll);
 
-      // "BtS" button functionality (already handled in the backButton creation in startPhases)
+      // "BtS" button functionality
       document
         .getElementById("backToSetup")
         .addEventListener("click", function () {
