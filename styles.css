@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.phase {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 10px;
+  margin: 10px;
+  width: 300px;
+}
+
+.phase h2 {
+  margin-top: 0;
+}
+
+.timer,
+.phase h2,
+.phase h3 {
+  font-size: 1.2em;
+  margin: 5px 0;
+}
+
+button,
+select {
+  font-size: 1em;
+  padding: 5px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+#runningDisplay {
+  margin-top: 20px;
+  text-align: center;
+  width: 80%;
+}
+
+#controls {
+  margin-top: 20px;
+}
